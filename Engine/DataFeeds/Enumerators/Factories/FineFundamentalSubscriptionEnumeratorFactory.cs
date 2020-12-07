@@ -78,21 +78,8 @@ namespace QuantConnect.Lean.Engine.DataFeeds.Enumerators.Factories
                     // but could happen when fine filtering custom universes
                     if (fineFundamentalForDate != null)
                     {
-                        yield return new FineFundamental
-                        {
-                            DataType = MarketDataType.Auxiliary,
-                            Symbol = request.Configuration.Symbol,
-                            Time = date,
-                            CompanyReference = fineFundamentalForDate.CompanyReference,
-                            SecurityReference = fineFundamentalForDate.SecurityReference,
-                            FinancialStatements = fineFundamentalForDate.FinancialStatements,
-                            EarningReports = fineFundamentalForDate.EarningReports,
-                            OperationRatios = fineFundamentalForDate.OperationRatios,
-                            EarningRatios = fineFundamentalForDate.EarningRatios,
-                            ValuationRatios = fineFundamentalForDate.ValuationRatios,
-                            AssetClassification = fineFundamentalForDate.AssetClassification,
-                            CompanyProfile = fineFundamentalForDate.CompanyProfile
-                        };
+                        fineFundamentalForDate.Time = date;
+                        yield return fineFundamentalForDate;
                     }
                 }
             }
