@@ -20,6 +20,7 @@ using NUnit.Framework;
 using QuantConnect.Optimizer;
 using QuantConnect.Util;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Threading;
 using QuantConnect.Configuration;
 using QuantConnect.Optimizer.Objectives;
@@ -237,7 +238,6 @@ namespace QuantConnect.Tests.Optimizer
         public void TrackEstimation()
         {
             Config.Set("optimization-update-interval", 1);
-            OptimizationEstimate estimate = null;
             OptimizationResult result = null;
             var resetEvent = new ManualResetEvent(false);
             var packet = new OptimizationNodePacket
@@ -256,25 +256,25 @@ namespace QuantConnect.Tests.Optimizer
             };
             var optimizer = new FakeLeanOptimizer(packet);
             // keep stats up-to-date
-            int totalBacktest = optimizer.GetCurrentEstimate().TotalBacktest;
+            int totalBacktest = optimizer.GetCurrentEstimate();
             int totalUpdates = 0;
             int completedTests = 0;
             int failed = 0;
             optimizer.Update += (s, e) =>
             {
-                estimate = optimizer.GetCurrentEstimate();
-                Assert.LessOrEqual(estimate.RunningBacktest, packet.MaximumConcurrentBacktests);
-                Assert.LessOrEqual(completedTests, estimate.CompletedBacktest);
-                Assert.LessOrEqual(failed, estimate.FailedBacktest);
+                var runtimeStats = optimizer.GetRuntimeStatistics();
+                Assert.LessOrEqual(packet.MaximumConcurrentBacktests, int.Parse(runtimeStats["runningBacktest"], CultureInfo.InvariantCulture));
+                Assert.LessOrEqual(completedTests, int.Parse(runtimeStats["completedBacktest"], CultureInfo.InvariantCulture));
+                Assert.LessOrEqual(failed, int.Parse(runtimeStats["failedBacktest"], CultureInfo.InvariantCulture));
 
-                Assert.AreEqual(totalBacktest, estimate.TotalBacktest);
+                Assert.AreEqual(totalBacktest, optimizer.GetCurrentEstimate());
 
-                completedTests = estimate.CompletedBacktest;
-                failed = estimate.FailedBacktest;
+                completedTests = int.Parse(runtimeStats["completedBacktest"], CultureInfo.InvariantCulture);
+                failed = int.Parse(runtimeStats["failedBacktest"], CultureInfo.InvariantCulture);
 
                 if (completedTests > 0)
                 {
-                    Assert.Greater(estimate.AverageBacktest, TimeSpan.Zero);
+                    Assert.Greater(TimeSpan.Parse(runtimeStats["averageBacktest"], CultureInfo.InvariantCulture), TimeSpan.Zero);
                 }
 
                 totalUpdates++;
@@ -282,7 +282,6 @@ namespace QuantConnect.Tests.Optimizer
             optimizer.Ended += (s, solution) =>
             {
                 result = solution;
-                estimate = optimizer.GetCurrentEstimate();
                 optimizer.DisposeSafely();
                 resetEvent.Set();
             };
@@ -291,11 +290,14 @@ namespace QuantConnect.Tests.Optimizer
 
             resetEvent.WaitOne();
 
-            Assert.NotZero(estimate.CompletedBacktest);
-            Assert.NotZero(estimate.FailedBacktest);
+            var runtimeStatistics = optimizer.GetRuntimeStatistics();
+            Assert.NotZero(int.Parse(runtimeStatistics["completedBacktest"], CultureInfo.InvariantCulture));
+            Assert.NotZero(int.Parse(runtimeStatistics["failedBacktest"], CultureInfo.InvariantCulture));
             // we have 2 force updates at least, expect a few more over it.
             Assert.Greater(totalUpdates, 2);
-            Assert.AreEqual(estimate.CompletedBacktest + estimate.FailedBacktest + estimate.RunningBacktest, totalBacktest);
+            Assert.AreEqual(int.Parse(runtimeStatistics["completedBacktest"], CultureInfo.InvariantCulture)
+                            + int.Parse(runtimeStatistics["failedBacktest"], CultureInfo.InvariantCulture)
+                            + int.Parse(runtimeStatistics["runningBacktest"], CultureInfo.InvariantCulture), totalBacktest);
         }
     }
 }
